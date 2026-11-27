@@ -593,7 +593,9 @@ pub fn run(rt: Handle) -> Result<()> {
     }
 
     // Live status from the service, once a second.
-    if std::env::var_os("DRIFTFOLDERSYNC_SNAPSHOT_DIR").is_none() {
+    let demo_mode = std::env::var_os("DRIFTFOLDERSYNC_SNAPSHOT_DIR").is_some()
+        || std::env::var_os("DRIFTFOLDERSYNC_DEMO").is_some();
+    if !demo_mode {
         let w = ui.as_weak();
         rt.spawn(async move {
             loop {
@@ -620,6 +622,9 @@ pub fn run(rt: Handle) -> Result<()> {
     }
 
     wire(&app, &ui);
+    if std::env::var_os("DRIFTFOLDERSYNC_DEMO").is_some() {
+        demo::fill(&ui);
+    }
     #[cfg(debug_assertions)]
     if let Some(dir) = std::env::var_os("DRIFTFOLDERSYNC_SNAPSHOT_DIR") {
         snapshot::start(&ui, std::path::PathBuf::from(dir));
@@ -1149,58 +1154,88 @@ pub fn launch() {
     }
 }
 
+/// Demo mode (`DRIFTFOLDERSYNC_DEMO=1`): fictitious sample data instead of
+/// the live service, for screenshots and documentation.
+mod demo {
+    use super::*;
+
+    fn status(name: &str, account: &str, email: &str, kind: i32, interval: &str) -> FolderStatus {
+        let state = match kind {
+            0 => "Up to date",
+            1 => "Syncing",
+            2 => "Paused",
+            _ => "Error",
+        };
+        FolderStatus {
+            name: ss(name),
+            account: ss(account),
+            email: ss(email),
+            local: ss(format!("/home/alex/{name}")),
+            remote_url: ss("https://drive.google.com/"),
+            state: ss(state),
+            state_kind: kind,
+            message: ss(if kind == 1 { "Syncing 12/40" } else { "" }),
+            interval: ss(interval_text(interval)),
+            last_sync: ss("2026-11-27 11:42:07"),
+            pending: if kind == 1 { 28 } else { 0 },
+            uploaded: if kind == 2 { 0 } else { 132 },
+            downloaded: if kind == 2 { 0 } else { 57 },
+            blocked_deletes: 0,
+            storage: ss(if account == "work" { "41.2 GiB of 2.0 TiB used" } else { "3.8 GiB of 15.0 GiB used" }),
+            recent: model(vec![
+                ss("11:42 Uploaded: Reports/Q4 summary.xlsx (88.1 KiB)"),
+                ss("11:40 Downloaded: Meeting notes.md (2.1 KiB)"),
+                ss("11:31 Renamed in cloud: Drafts → Proposals"),
+            ]),
+            errors: model(vec![]),
+        }
+    }
+
+    pub fn fill(ui: &MainWindow) {
+        ui.set_statuses(model(vec![
+            status("Documents", "work", "alex@example.com", 0, "realtime"),
+            status("Projects", "work", "alex@example.com", 1, "5m"),
+            status("Photos", "personal", "alex@example.org", 2, "30m"),
+        ]));
+        ui.set_daemon_running(true);
+        ui.set_problem_count(0);
+        let mut f = new_folder_row("work");
+        f.is_new = false;
+        f.name = ss("Documents");
+        f.local = ss("/home/alex/Documents");
+        f.remote = ss("/Documents");
+        f.symlinks = 1;
+        f.exclude_folders = ss("Archive/2019\nScratch");
+        let mk = |n: &str, acct: &str| {
+            let mut g = f.clone();
+            g.name = ss(n);
+            g.account = ss(acct);
+            g
+        };
+        ui.set_folders(model(vec![f.clone(), mk("Projects", "work"), mk("Photos", "personal")]));
+        ui.set_selected_folder(0);
+        ui.set_current_folder(f.clone());
+        ui.set_account_names(model(vec![ss("work"), ss("personal")]));
+        ui.set_accounts(model(vec![
+            AccountRow { name: ss("work"), email: ss("alex@example.com"), client_id: ss(""), client_secret: ss(""), signed_in: true, folders: 2 },
+            AccountRow { name: ss("personal"), email: ss("alex@example.org"), client_id: ss(""), client_secret: ss(""), signed_in: true, folders: 1 },
+        ]));
+        ui.set_log_text(ss("2026-11-27T11:42:07Z  INFO Uploaded: Reports/Q4 summary.xlsx\n2026-11-27T11:42:09Z  INFO 0 actions"));
+        if let Some(p) = std::env::var("DRIFTFOLDERSYNC_DEMO_PAGE").ok().and_then(|p| p.parse().ok()) {
+            ui.set_page(p);
+        }
+    }
+}
+
 /// Developer aid (debug builds only): fill the window with sample data and
 /// save an image of every page, then quit.
 #[cfg(debug_assertions)]
 mod snapshot {
     use super::*;
 
-    fn sample_status(name: &str, kind: i32, state: &str) -> FolderStatus {
-        FolderStatus {
-            name: ss(name),
-            account: ss("work"),
-            email: ss("me@example.com"),
-            local: ss(format!("/home/me/{name}")),
-            remote_url: ss("https://drive.google.com/drive/folders/x"),
-            state: ss(state),
-            state_kind: kind,
-            message: ss(if kind == 1 { "Syncing 12/40" } else { "" }),
-            interval: ss(interval_text(if kind == 1 { "realtime" } else { "5m" })),
-            last_sync: ss("2026-11-27 11:42:07"),
-            pending: if kind == 1 { 28 } else { 0 },
-            uploaded: 132,
-            downloaded: 57,
-            blocked_deletes: if kind == 4 { 312 } else { 0 },
-            storage: ss("41.2 GiB of 2.0 TiB used"),
-            recent: model(vec![ss("11:42 Uploaded: Reports/Q4.xlsx (88.1 KiB)"), ss("11:40 Downloaded: notes.md (2.1 KiB)")]),
-            errors: model(if kind == 4 { vec![ss("11:41 Contracts/old.pdf: permission denied")] } else { vec![] }),
-        }
-    }
-
     pub fn start(ui: &MainWindow, dir: std::path::PathBuf) {
         let _ = std::fs::create_dir_all(&dir);
-        ui.set_statuses(model(vec![
-            sample_status("documents", 0, "Up to date"),
-            sample_status("projects", 1, "Syncing"),
-            sample_status("archive", 4, "Error"),
-        ]));
-        ui.set_daemon_running(true);
-        ui.set_problem_count(1);
-        let mut f = new_folder_row("work");
-        f.is_new = false;
-        f.name = ss("documents");
-        f.local = ss("/home/me/Documents");
-        f.remote = ss("/Documents");
-        f.exclude_folders = ss("Old stuff\nArchive/2019");
-        ui.set_folders(model(vec![f.clone(), { let mut g = f.clone(); g.name = ss("projects"); g }]));
-        ui.set_selected_folder(0);
-        ui.set_current_folder(f);
-        ui.set_account_names(model(vec![ss("work"), ss("client")]));
-        ui.set_accounts(model(vec![
-            AccountRow { name: ss("work"), email: ss("me@example.com"), client_id: ss(""), client_secret: ss(""), signed_in: true, folders: 2 },
-            AccountRow { name: ss("client"), email: ss("me@client.example"), client_id: ss(""), client_secret: ss(""), signed_in: false, folders: 0 },
-        ]));
-        ui.set_log_text(ss("2026-11-27T11:42:07Z  INFO Uploaded: Reports/Q4.xlsx\n2026-11-27T11:42:09Z  INFO 0 actions"));
+        demo::fill(ui);
         let steps: Vec<(&str, Box<dyn Fn(&MainWindow)>)> = vec![
             ("1-overview", Box::new(|ui| ui.set_page(0))),
             ("2-folders", Box::new(|ui| ui.set_page(1))),

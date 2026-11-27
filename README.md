@@ -12,6 +12,15 @@ Flatpak.
 > user signs in through their **own** OAuth client (see
 > [OAuth set-up](#oauth-set-up)).
 
+![The DriftFolderSync overview, showing three folders: up to date, syncing and paused](docs/screenshots/overview.png)
+
+<details>
+<summary>Folder settings</summary>
+
+![Settings for one sync folder: account, local and cloud folders, direction, sync frequency and selective sync](docs/screenshots/folder-settings.png)
+
+</details>
+
 ## Contents
 
 - [Features](#features)
