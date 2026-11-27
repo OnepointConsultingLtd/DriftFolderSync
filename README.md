@@ -18,7 +18,6 @@ Flatpak.
 - [Install](#install)
 - [OAuth set-up](#oauth-set-up)
 - [Quick start](#quick-start)
-- [Migrating from an rclone cron job](#migrating-from-an-rclone-cron-job)
 - [Sync frequency and batching](#sync-frequency-and-batching)
 - [How it stays light on the system](#how-it-stays-light-on-the-system)
 - [Safety](#safety)
@@ -184,42 +183,6 @@ You can also add folders from the tray: **Add a folder to sync → Using
 account '…'** opens a folder picker and mirrors the folder to
 `My Drive/<folder name>`.
 
-## Migrating from an rclone cron job
-
-DriftFolderSync is designed to take over trees that rclone already keeps in step,
-**without re-uploading or re-downloading them**:
-
-- `initial_match = "size-mtime"` (the default) treats a file present on both
-  sides with the same size and a modification time within 2 s as identical.
-  rclone preserves modification times, so no data is transferred. Files whose
-  times differ are compared by MD5 before anything happens.
-- `symlinks = "rclonelink"` reads and writes the `name.rclonelink` files that
-  `rclone --links` creates.
-- rclone exports Google Docs as `.docx`/`.xlsx`/`.pptx`. Those local copies
-  are **left alone**, not uploaded as duplicates. The document also appears
-  as a `.gdoc` link (or switch to `google_docs = "export"` to keep receiving
-  Office exports).
-
-Steps:
-
-1. **Stop the cron job first**, so that two tools are not syncing the same
-   folders: `sudo rm /etc/cron.hourly/rclone-sync` (or `chmod -x` it).
-2. Run one last `rclone sync` in the direction you trust, so that both sides
-   match.
-3. Add accounts and folders that mirror your rclone remotes, e.g. for
-   `rclone sync ~/Docs remote:/documents`:
-   ```toml
-   [[sync]]
-   name = "docs"
-   account = "work"
-   local = "/home/me/Docs"
-   remote = "/documents"
-   symlinks = "rclonelink"
-   ```
-4. Start the daemon. The first run lists the cloud folder (a few minutes for
-   about 100k files, within the API rate limits), then records the matching
-   state locally. Watch it with `driftfoldersync status` or the tray.
-
 ## Sync frequency and batching
 
 Each folder has a `sync_interval`:
@@ -347,6 +310,6 @@ cargo build --release
 
 The end-to-end tests run the real sync engine against a fake Drive API. They
 cover uploads and downloads, edits in both directions, echo suppression,
-renames and moves without re-upload, deletions, conflicts, rclone migration
+renames and moves without re-upload, deletions, conflicts, matching files already present on both sides without transferring them
 without transfers, batching, the deletion guard, resumable uploads, and
 selective sync.
