@@ -1,0 +1,49 @@
+[package]
+name = "driftfoldersync"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Real-time two-way file synchronisation between Linux folders and cloud drive accounts"
+rust-version = "1.93"
+
+[dependencies]
+anyhow = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "net", "io-util", "signal"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "socks", "rustls-no-provider", "system-proxy", "http2", "charset", "query", "form"] }
+futures = "0.3"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1"
+toml_edit = "0.25"
+clap = { version = "4", features = ["derive"] }
+rusqlite = { version = "0.43", features = ["bundled"] }
+inotify = { version = "0.11", default-features = false }
+oo7 = { version = "0.6", default-features = false, features = ["tokio", "native_crypto"] }
+ksni = { version = "0.3", default-features = false, features = ["tokio"] }
+notify-rust = { version = "4", default-features = false, features = ["z"] }
+ashpd = { version = "0.14", default-features = false, features = ["tokio", "file_chooser", "open_uri", "background"] }
+globset = "0.4"
+md-5 = "0.11"
+sha2 = "0.11"
+base64 = "0.23"
+url = "2"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+directories = "6"
+trash = "5"
+hostname = "0.4"
+humantime = "2"
+libc = "0.2"
+bytes = "1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = true

@@ -1,0 +1,45 @@
+id: io.github.driftfoldersync.DriftFolderSync
+runtime: org.freedesktop.Platform
+runtime-version: '26.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: driftfoldersync
+finish-args:
+  # Talk to the Google Drive API and the OAuth endpoints.
+  - --share=network
+  # Sync folders can live anywhere in your home directory; deleted files are
+  # moved to your real ~/.local/share/Trash.
+  - --filesystem=home
+  # System tray icon (StatusNotifierItem) and desktop notifications.
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=org.freedesktop.Notifications
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/driftfoldersync/cargo-home
+    CARGO_NET_OFFLINE: 'true'
+modules:
+  - name: driftfoldersync
+    buildsystem: simple
+    build-commands:
+      # Use the crates vendored by flatpak/build.sh (no network during build).
+      - mkdir -p cargo-home
+      - printf '[source.crates-io]\nreplace-with = "vendored"\n[source.vendored]\ndirectory = "vendor"\n' > cargo-home/config.toml
+      - cargo build --release --locked --offline
+      - install -Dm755 target/release/driftfoldersync /app/bin/driftfoldersync
+      - install -Dm644 data/io.github.driftfoldersync.DriftFolderSync.desktop /app/share/applications/io.github.driftfoldersync.DriftFolderSync.desktop
+      - install -Dm644 data/io.github.driftfoldersync.DriftFolderSync.Open.desktop /app/share/applications/io.github.driftfoldersync.DriftFolderSync.Open.desktop
+      - install -Dm644 data/io.github.driftfoldersync.DriftFolderSync.metainfo.xml /app/share/metainfo/io.github.driftfoldersync.DriftFolderSync.metainfo.xml
+      - install -Dm644 data/io.github.driftfoldersync.DriftFolderSync.mime.xml /app/share/mime/packages/io.github.driftfoldersync.DriftFolderSync.xml
+      - install -Dm644 data/icons/io.github.driftfoldersync.DriftFolderSync.svg /app/share/icons/hicolor/scalable/apps/io.github.driftfoldersync.DriftFolderSync.svg
+      - install -Dm644 LICENSE /app/share/licenses/io.github.driftfoldersync.DriftFolderSync/LICENSE
+    sources:
+      - type: dir
+        path: ..
+        skip:
+          - target
+          - .git
+          - flatpak/.flatpak-builder
+          - flatpak/build-dir
+          - flatpak/repo

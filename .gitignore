@@ -1,0 +1,6 @@
+/target
+/vendor
+/flatpak/.flatpak-builder
+/flatpak/build-dir
+/flatpak/repo
+/driftfoldersync.flatpak

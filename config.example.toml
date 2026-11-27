@@ -1,0 +1,66 @@
+# DriftFolderSync settings — ~/.config/driftfoldersync/config.toml
+# (Flatpak: ~/.var/app/io.github.driftfoldersync.DriftFolderSync/config/driftfoldersync/config.toml)
+#
+# After editing, run `driftfoldersync reload` or use "Reload settings" in the tray menu.
+
+[general]
+notifications = true          # desktop notifications for conflicts, errors, held-back deletions
+tray = true                   # show a system tray icon
+proxy = ""                    # e.g. "http://proxy:3128" or "socks5://host:1080"; empty = *_proxy env vars
+max_upload_kibps = 0          # global bandwidth limits in KiB/s; 0 = unlimited
+max_download_kibps = 0
+max_concurrent_transfers = 4  # per sync folder
+nice = 10                     # lower CPU/IO priority so syncing never gets in your way
+start_at_login = false        # use `driftfoldersync autostart on` to change
+
+# One [[account]] per Google account. Each uses an OAuth "Desktop app" client
+# created in YOUR OWN Google Cloud project (see README → "OAuth set-up").
+# Different accounts can share the same client.
+
+[[account]]
+name = "onepoint"
+email = "you@example.com"        # optional; checked when you sign in
+client_id = "1234567890-abc.apps.googleusercontent.com"
+client_secret = "GOCSPX-replace-me"
+requests_per_second = 5.0        # sustained Drive API request rate for this account
+request_burst = 10
+
+[[account]]
+name = "bkconnect"
+email = "you@example.org"
+client_id = "1234567890-abc.apps.googleusercontent.com"
+client_secret = "GOCSPX-replace-me"
+
+# One [[sync]] per local folder ⇄ cloud folder pair.
+
+[[sync]]
+name = "onepoint"
+account = "onepoint"
+local = "/home/you/Onepoint Drive/documents"
+remote = "/documents"             # folder in My Drive; "/" = the whole of My Drive
+shared_drive = ""                 # name or ID of a shared drive, if not My Drive
+mode = "two-way"                  # two-way | upload-only | download-only
+sync_interval = "realtime"        # realtime | 1m | 5m | 30m | 1h | any duration
+remote_poll_interval = "30s"      # real-time mode: how often to ask the cloud for changes
+settle_time = "3s"                # real-time mode: wait until a file has been quiet this long
+full_rescan_interval = "6h"       # safety-net rescan (stat only, no hashing)
+conflict_policy = "keep-both"     # keep-both | prefer-local | prefer-remote | prefer-newest
+google_docs = "link"              # link (.gdoc files that open in the browser) | export | ignore
+symlinks = "rclonelink"           # skip | rclonelink (compatible with `rclone --links`)
+delete = "trash"                  # trash (bin/Trash, recoverable) | never (restore from other side)
+initial_match = "size-mtime"      # size-mtime (fast, rclone-compatible) | checksum
+exclude = ["*.tmp", "*.swp", "*~", "~$*", ".~lock.*#", ".directory", ".DS_Store", "Thumbs.db", "desktop.ini", ".Trash-*", ".driftfoldersync-*"]
+exclude_folders = []              # selective sync: relative folders NOT to sync
+include_folders = []              # selective sync: if set, ONLY these relative folders are synced
+max_file_size_mib = 0             # 0 = no limit
+acknowledge_abuse = false         # also download files Google flags as malware/spam
+delete_guard = 250                # hold back more than this many deletions per cycle until confirmed
+paused = false
+
+[[sync]]
+name = "bkconnect"
+account = "bkconnect"
+local = "/home/you/BKConnect Drive/Synced"
+remote = "/Synced"
+sync_interval = "5m"              # batch changes: sync at most every 5 minutes
+symlinks = "rclonelink"

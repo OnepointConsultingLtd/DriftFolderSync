@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Open Cloud Document
+Comment=Open a cloud document link file in your web browser
+Exec=driftfoldersync open %f
+Icon=io.github.driftfoldersync.DriftFolderSync
+Terminal=false
+NoDisplay=true
+MimeType=application/x-driftfoldersync-link;

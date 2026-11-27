@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.driftfoldersync.DriftFolderSync</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>DriftFolderSync</name>
+  <summary>Real-time two-way folder sync with Google Drive</summary>
+  <description>
+    <p>
+      DriftFolderSync keeps local folders and folders in your Google Drive accounts in sync,
+      in both directions, as files change. It is an independent, unofficial client
+      that uses only Google's public Drive API with your own OAuth credentials.
+    </p>
+    <ul>
+      <li>Two-way mirroring, or upload-only backup / download-only modes</li>
+      <li>Several Google accounts, each with its own folders</li>
+      <li>Real-time, or batched every N minutes to limit API calls</li>
+      <li>Low-overhead inotify monitoring and API rate limiting</li>
+      <li>Selective sync, exclude patterns, conflict handling, recoverable deletes</li>
+      <li>Shared drives, Google Docs link files, bandwidth limits, proxy support</li>
+    </ul>
+    <p>
+      Google Drive is a trademark of Google LLC. DriftFolderSync is not affiliated with,
+      endorsed by, or sponsored by Google.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.driftfoldersync.DriftFolderSync.desktop</launchable>
+  <provides>
+    <binary>driftfoldersync</binary>
+  </provides>
+  <categories>
+    <category>Network</category>
+    <category>FileTransfer</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-11-27">
+      <description><p>First release.</p></description>
+    </release>
+  </releases>
+</component>

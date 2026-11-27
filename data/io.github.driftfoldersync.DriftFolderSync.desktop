@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=DriftFolderSync
+GenericName=Cloud Folder Sync
+Comment=Keep folders in sync with your Google Drive accounts
+Exec=driftfoldersync daemon
+Icon=io.github.driftfoldersync.DriftFolderSync
+Terminal=false
+Categories=Network;FileTransfer;Utility;
+Keywords=sync;cloud;drive;backup;mirror;
+StartupNotify=false
+X-GNOME-UsesNotifications=true
