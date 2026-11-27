@@ -69,7 +69,9 @@ jobs:
         with:
           manifest-path: flatpak/io.github.OnepointConsultingLtd.DriftFolderSync.yml
           bundle: ${{ steps.name.outputs.file }}
-          cache-key: flatpak-builder-${{ hashFiles('Cargo.lock', 'flatpak/*.yml') }}
+          # A restored flatpak-builder cache makes the builder crash (exit 139)
+          # in this image, so always build from scratch (about 10 minutes).
+          cache: false
           upload-artifact: true
 
       - name: Checksum
