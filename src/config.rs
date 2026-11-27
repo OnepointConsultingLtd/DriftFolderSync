@@ -385,6 +385,79 @@ fn edit_table(array: &str, name: &str, key: &str, value: toml_edit::Value) -> Re
     write_atomic(&path, out.as_bytes())
 }
 
+/// Replace every key of the `[[array]]` table named `name` with the
+/// serialised `value`, keeping comments and the order of other tables.
+pub fn update_table<T: Serialize>(array: &str, name: &str, value: &T) -> Result<()> {
+    let path = Config::path();
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut doc: toml_edit::DocumentMut = text.parse()?;
+    let fresh: toml_edit::DocumentMut = toml::to_string(value)?.parse()?;
+    let arr = doc
+        .get_mut(array)
+        .and_then(|i| i.as_array_of_tables_mut())
+        .with_context(|| format!("no [[{array}]] sections in config"))?;
+    let table = arr
+        .iter_mut()
+        .find(|t| t.get("name").and_then(|n| n.as_str()) == Some(name))
+        .with_context(|| format!("no [[{array}]] named '{name}'"))?;
+    copy_keys(fresh.as_table(), table);
+    save_doc(&path, &doc)
+}
+
+/// Remove the `[[array]]` table named `name`.
+pub fn remove_table(array: &str, name: &str) -> Result<()> {
+    let path = Config::path();
+    let text = std::fs::read_to_string(&path).context("no settings file")?;
+    let mut doc: toml_edit::DocumentMut = text.parse()?;
+    let arr = doc
+        .get_mut(array)
+        .and_then(|i| i.as_array_of_tables_mut())
+        .with_context(|| format!("no [[{array}]] sections in config"))?;
+    let before = arr.len();
+    arr.retain(|t| t.get("name").and_then(|n| n.as_str()) != Some(name));
+    if arr.len() == before {
+        bail!("no [[{array}]] named '{name}'");
+    }
+    save_doc(&path, &doc)
+}
+
+/// Replace the `[general]` table's keys, keeping comments.
+pub fn update_general(g: &General) -> Result<()> {
+    let path = Config::path();
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut doc: toml_edit::DocumentMut = text.parse()?;
+    let fresh: toml_edit::DocumentMut = toml::to_string(g)?.parse()?;
+    if doc.get("general").is_none() {
+        doc["general"] = toml_edit::table();
+    }
+    let t = doc["general"].as_table_mut().context("[general] is not a table")?;
+    copy_keys(fresh.as_table(), t);
+    save_doc(&path, &doc)
+}
+
+fn copy_keys(from: &toml_edit::Table, to: &mut toml_edit::Table) {
+    for (k, v) in from.iter() {
+        if let Some(existing) = to.get_mut(k) {
+            if let (Some(old), Some(new)) = (existing.as_value_mut(), v.as_value()) {
+                // Keep any trailing comment on the line.
+                let decor = old.decor().clone();
+                *old = new.clone();
+                *old.decor_mut() = decor;
+                continue;
+            }
+        }
+        to[k] = v.clone();
+    }
+}
+
+fn save_doc(path: &Path, doc: &toml_edit::DocumentMut) -> Result<()> {
+    let out = doc.to_string();
+    let cfg: Config = toml::from_str(&out)?;
+    cfg.validate()?;
+    write_atomic(path, out.as_bytes())
+}
+
 /// Append a new table to the config file, preserving existing content.
 pub fn append_table<T: Serialize>(array: &str, value: &T) -> Result<()> {
     let path = Config::path();
@@ -425,6 +498,31 @@ mod tests {
         assert_eq!(parse_interval("5m").unwrap(), Some(Duration::from_secs(300)));
         assert_eq!(parse_interval("30m").unwrap(), Some(Duration::from_secs(1800)));
         assert!(parse_interval("banana").is_err());
+    }
+
+    #[test]
+    fn gui_edits_keep_comments() {
+        let dir = tempfile::tempdir().unwrap();
+        std::env::set_var("DRIFTFOLDERSYNC_CONFIG_DIR", dir.path());
+        std::fs::write(Config::path(), include_str!("../config.example.toml")).unwrap();
+        let cfg = Config::load().unwrap();
+        let mut p = cfg.pair("bkconnect").unwrap().clone();
+        p.sync_interval = "30m".into();
+        p.exclude_folders = vec!["Old".into()];
+        update_table("sync", "bkconnect", &p).unwrap();
+        let mut g = cfg.general.clone();
+        g.max_upload_kibps = 512;
+        update_general(&g).unwrap();
+        let text = std::fs::read_to_string(Config::path()).unwrap();
+        assert!(text.contains("# global bandwidth limits"), "comments must survive");
+        let again = Config::load().unwrap();
+        assert_eq!(again.pair("bkconnect").unwrap().sync_interval, "30m");
+        assert_eq!(again.pair("bkconnect").unwrap().exclude_folders, vec!["Old".to_string()]);
+        assert_eq!(again.general.max_upload_kibps, 512);
+        assert_eq!(again.pair("onepoint").unwrap().sync_interval, "realtime");
+        remove_table("sync", "bkconnect").unwrap();
+        assert!(Config::load().unwrap().pair("bkconnect").is_none());
+        std::env::remove_var("DRIFTFOLDERSYNC_CONFIG_DIR");
     }
 
     #[test]

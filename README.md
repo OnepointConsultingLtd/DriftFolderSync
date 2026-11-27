@@ -46,6 +46,7 @@ Compared with Drive for desktop (Windows/macOS):
 | Bandwidth limits | ✅ upload and download, KiB/s |
 | Proxy | ✅ HTTP/HTTPS/SOCKS5, or the standard `*_proxy` variables |
 | Notifications | ✅ conflicts, sign-in problems, full storage, held-back deletions |
+| Settings and status window | ✅ overview, per-folder settings, cloud folder browser, selective-sync picker, account set-up guide, preferences, activity and log |
 | Tray icon with status, activity and storage use | ✅ StatusNotifierItem (KDE, GNOME with AppIndicator extension, Xfce, …) |
 | Start at login | ✅ Background portal (Flatpak) or XDG autostart |
 | Deleted files are recoverable | ✅ cloud deletions go to the Drive bin; local ones to your Trash |
@@ -86,6 +87,10 @@ alias driftfoldersync='flatpak run io.github.OnepointConsultingLtd.DriftFolderSy
 ### From source
 
 ```sh
+# Debian/Ubuntu build dependencies (Qt is optional: with it, the window uses
+# your desktop's native Qt style; without it, Slint's own style)
+sudo apt install build-essential pkg-config libfontconfig1-dev libxkbcommon-dev \
+    qt6-base-dev   # optional
 cargo build --release
 install -Dm755 target/release/driftfoldersync ~/.local/bin/driftfoldersync
 ```
@@ -126,6 +131,27 @@ DriftFolderSync requests the `https://www.googleapis.com/auth/drive` scope, whic
 needs to see and mirror existing files.
 
 ## Quick start
+
+### With the window
+
+Open **DriftFolderSync** from your application menu (or run
+`driftfoldersync` with no arguments).
+
+1. **Accounts → Add account…** walks you through creating your OAuth client
+   (with buttons that open the right Google Cloud pages), then signs you in
+   through the browser.
+2. **Folders → Add a folder…**: pick the folder on this computer and, with
+   **Browse…**, the folder in My Drive or a shared drive. Choose how often to
+   sync, then **Add folder**.
+3. **Overview** shows every folder's state, progress and any problems.
+   **Choose folders…** (under Folders) selects which cloud sub-folders are
+   kept on this computer.
+4. Under **Preferences**, turn on **Start at login**.
+
+Closing the window does not stop syncing. The sync service keeps running,
+with its tray icon, until you choose **Quit** from the tray menu.
+
+### From the command line
 
 ```sh
 # 1. Add an account (opens your browser to sign in)
@@ -244,6 +270,7 @@ Run `driftfoldersync config-path` to print it. Every option is documented in
 ## Command reference
 
 ```
+driftfoldersync [gui]                        open the settings and status window
 driftfoldersync daemon [--no-tray]           run the service
 driftfoldersync status [--json]              state of every folder
 driftfoldersync pause|resume|sync-now [folder]

@@ -1,13 +1,19 @@
 id: io.github.OnepointConsultingLtd.DriftFolderSync
-runtime: org.freedesktop.Platform
-runtime-version: '26.08'
-sdk: org.freedesktop.Sdk
+# KDE runtime: provides Qt so the window uses your desktop's native style.
+runtime: org.kde.Platform
+runtime-version: '6.11'
+sdk: org.kde.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
 command: driftfoldersync
 finish-args:
   # Talk to the Google Drive API and the OAuth endpoints.
   - --share=network
+  # The settings and status window.
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
   # Sync folders can live anywhere in your home directory; deleted files are
   # moved to your real ~/.local/share/Trash.
   - --filesystem=home
@@ -19,6 +25,8 @@ build-options:
   env:
     CARGO_HOME: /run/build/driftfoldersync/cargo-home
     CARGO_NET_OFFLINE: 'true'
+    # Draw widgets with Qt, i.e. the desktop's own style (Breeze on KDE).
+    SLINT_STYLE: qt
 modules:
   - name: driftfoldersync
     buildsystem: simple

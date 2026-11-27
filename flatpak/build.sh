@@ -22,8 +22,8 @@ fi
 
 echo "==> Making sure the runtime and Rust SDK extension are installed"
 flatpak install --user --noninteractive --or-update flathub \
-    org.freedesktop.Platform//26.08 org.freedesktop.Sdk//26.08 \
-    org.freedesktop.Sdk.Extension.rust-stable//26.08 > /dev/null
+    org.kde.Platform//6.11 org.kde.Sdk//6.11 \
+    org.freedesktop.Sdk.Extension.rust-stable//25.08 > /dev/null
 
 echo "==> Building"
 cd "$here"

@@ -1,0 +1,1032 @@
+// DriftFolderSync — main window. GPL-3.0-or-later.
+
+import { Button, CheckBox, ComboBox, LineEdit, TextEdit, SpinBox, ListView, ScrollView,
+         GroupBox, Switch, Spinner, Palette, HorizontalBox, VerticalBox, GridBox } from "std-widgets.slint";
+
+export struct FolderStatus {
+    name: string,
+    account: string,
+    email: string,
+    local: string,
+    remote-url: string,
+    state: string,
+    // 0 idle, 1 syncing, 2 paused, 3 offline, 4 error, 5 sign-in required, 6 starting
+    state-kind: int,
+    message: string,
+    interval: string,
+    last-sync: string,
+    pending: int,
+    uploaded: int,
+    downloaded: int,
+    blocked-deletes: int,
+    storage: string,
+    recent: [string],
+    errors: [string],
+}
+
+export struct FolderConfig {
+    is-new: bool,
+    name: string,
+    account: string,
+    local: string,
+    remote: string,
+    shared-drive: string,
+    mode: int,            // 0 two-way, 1 upload-only, 2 download-only
+    interval: int,        // index into interval choices; 5 = custom
+    interval-custom: string,
+    poll: string,
+    settle: string,
+    rescan: string,
+    conflict: int,        // keep-both, prefer-local, prefer-remote, prefer-newest
+    docs: int,            // link, export, ignore
+    symlinks: int,        // skip, rclonelink
+    delete-mode: int,     // trash, never
+    initial-match: int,   // size-mtime, checksum
+    delete-guard: int,
+    max-file-size: int,
+    excludes: string,
+    exclude-folders: string,
+    include-folders: string,
+    acknowledge-abuse: bool,
+    paused: bool,
+}
+
+export struct AccountRow {
+    name: string,
+    email: string,
+    client-id: string,
+    client-secret: string,
+    signed-in: bool,
+    folders: int,
+}
+
+export struct GeneralCfg {
+    notifications: bool,
+    tray: bool,
+    proxy: string,
+    up-kibps: int,
+    down-kibps: int,
+    transfers: int,
+    nice: int,
+    start-at-login: bool,
+}
+
+export struct TreeRow {
+    id: string,
+    name: string,
+    path: string,
+    drive: string,
+    depth: int,
+    expandable: bool,
+    expanded: bool,
+    loading: bool,
+    checked: bool,
+    enabled: bool,
+}
+
+export global Theme {
+    out property <color> ok: #2e9d5a;
+    out property <color> busy: #2f7fd6;
+    out property <color> paused: #8a8f98;
+    out property <color> warn: #d98a1c;
+    out property <color> bad: #d0453b;
+    public pure function state-color(kind: int) -> color {
+        if kind == 0 { return ok; }
+        if kind == 1 || kind == 6 { return busy; }
+        if kind == 2 { return paused; }
+        if kind == 3 { return warn; }
+        return bad;
+    }
+}
+
+component Card inherits Rectangle {
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: Palette.border;
+    background: Palette.alternate-background;
+}
+
+component Heading inherits Text {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+component Hint inherits Text {
+    color: Palette.foreground.with-alpha(0.65);
+    wrap: word-wrap;
+    font-size: 12px;
+}
+
+component Field inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> hint;
+    spacing: 12px;
+    VerticalLayout {
+        width: 190px;
+        alignment: start;
+        padding-top: 6px;
+        Text { text: label; horizontal-alignment: right; }
+        if hint != "": Hint { text: hint; horizontal-alignment: right; }
+    }
+    VerticalLayout { alignment: start; @children }
+}
+
+component NavItem inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    in property <int> badge;
+    callback clicked;
+    height: 36px;
+    border-radius: 6px;
+    background: selected ? Palette.selection-background : ta.has-hover ? Palette.alternate-background : transparent;
+    ta := TouchArea { clicked => { root.clicked(); } }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 8px;
+        Text {
+            text: label;
+            vertical-alignment: center;
+            color: selected ? Palette.selection-foreground : Palette.foreground;
+        }
+        if badge > 0: Rectangle {
+            width: 22px;
+            height: 18px;
+            y: (parent.height - self.height) / 2;
+            border-radius: 9px;
+            background: Theme.bad;
+            Text { text: badge; color: white; font-size: 11px; }
+        }
+    }
+}
+
+component StatusDot inherits Rectangle {
+    in property <int> kind;
+    width: 12px;
+    height: 12px;
+    border-radius: 6px;
+    background: Theme.state-color(kind);
+}
+
+// ---------------------------------------------------------------- Overview
+
+component FolderCard inherits Card {
+    in property <FolderStatus> st;
+    callback open-folder();
+    callback open-browser();
+    callback sync-now();
+    callback pause(bool);
+    callback allow-deletes();
+    callback sign-in();
+    VerticalBox {
+        HorizontalLayout {
+            spacing: 10px;
+            StatusDot { kind: st.state-kind; y: 6px; }
+            VerticalLayout {
+                Text { text: st.name; font-size: 16px; font-weight: 600; }
+                Hint { text: st.email == "" ? st.account : st.email + "  ·  " + st.account; }
+            }
+            Rectangle { horizontal-stretch: 1; }
+            VerticalLayout {
+                alignment: center;
+                Text {
+                    text: st.state;
+                    color: Theme.state-color(st.state-kind);
+                    font-weight: 600;
+                    horizontal-alignment: right;
+                }
+                if st.state-kind == 1: Spinner { indeterminate: true; width: 18px; height: 18px; }
+            }
+        }
+        if st.message != "": Hint { text: st.message; }
+        GridLayout {
+            spacing: 6px;
+            Row {
+                Hint { text: "Local folder"; width: 130px; }
+                Text { text: st.local; overflow: elide; }
+            }
+            Row {
+                Hint { text: "Sync frequency"; width: 130px; }
+                Text { text: st.interval; }
+            }
+            Row {
+                Hint { text: "Last checked"; width: 130px; }
+                Text { text: st.last-sync == "" ? "—" : st.last-sync; }
+            }
+            Row {
+                Hint { text: "This session"; width: 130px; }
+                Text { text: st.uploaded + " uploaded, " + st.downloaded + " downloaded" + (st.pending > 0 ? ", " + st.pending + " pending" : ""); }
+            }
+            if st.storage != "": Row {
+                Hint { text: "Cloud storage"; width: 130px; }
+                Text { text: st.storage; }
+            }
+        }
+        if st.blocked-deletes > 0: Rectangle {
+            border-radius: 6px;
+            background: Theme.warn.with-alpha(0.15);
+            HorizontalBox {
+                Text {
+                    text: st.blocked-deletes + " deletions are being held back for safety. Check the folder, then allow them.";
+                    wrap: word-wrap;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                Button { text: "Allow deletions"; clicked => { root.allow-deletes(); } }
+            }
+        }
+        if st.state-kind == 5: Rectangle {
+            border-radius: 6px;
+            background: Theme.bad.with-alpha(0.12);
+            HorizontalBox {
+                Text { text: "This account needs you to sign in again."; vertical-alignment: center; horizontal-stretch: 1; }
+                Button { text: "Sign in…"; primary: true; clicked => { root.sign-in(); } }
+            }
+        }
+        if st.errors.length > 0: VerticalLayout {
+            spacing: 2px;
+            Text { text: "Recent problems"; font-weight: 600; color: Theme.bad; }
+            for e[i] in st.errors: Hint { text: e; visible: i < 3; height: i < 3 ? self.preferred-height : 0; }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "Open folder"; clicked => { root.open-folder(); } }
+            Button { text: "Open in browser"; enabled: st.remote-url != ""; clicked => { root.open-browser(); } }
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: "Sync now"; enabled: st.state-kind != 2; clicked => { root.sync-now(); } }
+            Button {
+                text: st.state-kind == 2 ? "Resume" : "Pause";
+                clicked => { root.pause(st.state-kind != 2); }
+            }
+        }
+    }
+}
+
+component OverviewPage inherits VerticalBox {
+    in property <[FolderStatus]> statuses;
+    in property <bool> daemon-running;
+    callback start-daemon();
+    callback add-folder();
+    callback sync-all();
+    callback pause-all(bool);
+    callback open-folder(string);
+    callback open-browser(string);
+    callback sync-now(string);
+    callback pause(string, bool);
+    callback allow-deletes(string);
+    callback sign-in(string);
+    HorizontalLayout {
+        spacing: 8px;
+        Heading { text: "Overview"; }
+        Rectangle { horizontal-stretch: 1; }
+        Button { text: "Sync all now"; enabled: daemon-running; clicked => { root.sync-all(); } }
+        Button { text: "Pause all"; enabled: daemon-running; clicked => { root.pause-all(true); } }
+        Button { text: "Resume all"; enabled: daemon-running; clicked => { root.pause-all(false); } }
+    }
+    if !daemon-running: Card {
+        HorizontalBox {
+            Text {
+                text: "The sync service is not running, so nothing is being kept in sync.";
+                wrap: word-wrap;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            Button { text: "Start sync service"; primary: true; clicked => { root.start-daemon(); } }
+        }
+    }
+    if daemon-running && statuses.length == 0: Card {
+        VerticalBox {
+            alignment: center;
+            Text { text: "No folders are being synced yet."; horizontal-alignment: center; font-size: 15px; }
+            Hint { text: "Add a Google account under Accounts, then add a folder to keep in sync."; horizontal-alignment: center; }
+            HorizontalLayout {
+                alignment: center;
+                Button { text: "Add a folder…"; primary: true; clicked => { root.add-folder(); } }
+            }
+        }
+    }
+    ScrollView {
+        vertical-stretch: 1;
+        VerticalLayout {
+            alignment: start;
+            spacing: 12px;
+            for s in statuses: FolderCard {
+                st: s;
+                open-folder => { root.open-folder(s.name); }
+                open-browser => { root.open-browser(s.name); }
+                sync-now => { root.sync-now(s.name); }
+                pause(p) => { root.pause(s.name, p); }
+                allow-deletes => { root.allow-deletes(s.name); }
+                sign-in => { root.sign-in(s.account); }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- Folders
+
+component FoldersPage inherits HorizontalBox {
+    in property <[FolderConfig]> folders;
+    in property <[string]> account-names;
+    in-out property <FolderConfig> current;
+    in-out property <int> selected: -1;
+    callback new-folder();
+    callback save(FolderConfig);
+    callback remove(string);
+    callback reset(string);
+    callback browse-local();
+    callback browse-remote();
+    callback selective();
+
+    VerticalLayout {
+        width: 220px;
+        spacing: 8px;
+        Heading { text: "Folders"; }
+        ListView {
+            vertical-stretch: 1;
+            for f[i] in folders: NavItem {
+                label: f.name;
+                selected: i == selected;
+                clicked => { selected = i; current = f; }
+            }
+        }
+        Button { text: "Add a folder…"; clicked => { root.new-folder(); } }
+    }
+
+    if selected < 0 && !current.is-new: VerticalLayout {
+        alignment: center;
+        Hint { text: "Select a folder on the left, or add a new one."; horizontal-alignment: center; }
+    }
+
+    if selected >= 0 || current.is-new: ScrollView {
+        horizontal-stretch: 1;
+        VerticalBox {
+            Heading { text: current.is-new ? "New sync folder" : current.name; }
+
+            GroupBox {
+                title: "What to sync";
+                VerticalLayout {
+                    spacing: 10px;
+                    Field {
+                        label: "Name";
+                        LineEdit { text <=> current.name; enabled: current.is-new; placeholder-text: "e.g. work-documents"; }
+                    }
+                    Field {
+                        label: "Google account";
+                        ComboBox {
+                            model: account-names;
+                            current-value: current.account;
+                            selected(v) => { current.account = v; }
+                        }
+                    }
+                    Field {
+                        label: "Folder on this computer";
+                        HorizontalLayout {
+                            spacing: 6px;
+                            LineEdit { text <=> current.local; placeholder-text: "/home/…"; }
+                            Button { text: "Browse…"; clicked => { root.browse-local(); } }
+                        }
+                    }
+                    Field {
+                        label: "Folder in the cloud";
+                        hint: current.shared-drive == "" ? "In My Drive" : "In shared drive “" + current.shared-drive + "”";
+                        HorizontalLayout {
+                            spacing: 6px;
+                            LineEdit { text <=> current.remote; placeholder-text: "/ for everything, or /Documents"; }
+                            Button { text: "Browse…"; enabled: current.account != ""; clicked => { root.browse-remote(); } }
+                        }
+                    }
+                    Field {
+                        label: "Direction";
+                        ComboBox {
+                            model: ["Two-way (mirror)", "Upload only (backup)", "Download only"];
+                            current-index <=> current.mode;
+                        }
+                    }
+                }
+            }
+
+            GroupBox {
+                title: "When to sync";
+                VerticalLayout {
+                    spacing: 10px;
+                    Field {
+                        label: "Sync frequency";
+                        hint: "Batching collects changes and sends them together, avoiding floods of API calls for busy files.";
+                        HorizontalLayout {
+                            spacing: 6px;
+                            ComboBox {
+                                model: ["Real time", "Every minute", "Every 5 minutes", "Every 30 minutes", "Every hour", "Custom…"];
+                                current-index <=> current.interval;
+                            }
+                            if current.interval == 5: LineEdit { text <=> current.interval-custom; placeholder-text: "e.g. 10m, 2h"; }
+                        }
+                    }
+                    if current.interval == 0: Field {
+                        label: "Check the cloud every";
+                        LineEdit { text <=> current.poll; placeholder-text: "30s"; }
+                    }
+                    if current.interval == 0: Field {
+                        label: "Wait until a file is quiet for";
+                        LineEdit { text <=> current.settle; placeholder-text: "3s"; }
+                    }
+                    Field {
+                        label: "Full safety rescan every";
+                        LineEdit { text <=> current.rescan; placeholder-text: "6h"; }
+                    }
+                    Field {
+                        label: "Paused";
+                        Switch { checked <=> current.paused; }
+                    }
+                }
+            }
+
+            GroupBox {
+                title: "Selective sync";
+                VerticalLayout {
+                    spacing: 10px;
+                    Field {
+                        label: "Cloud folders";
+                        hint: "Choose which folders are kept on this computer.";
+                        HorizontalLayout {
+                            Button { text: "Choose folders…"; enabled: !current.is-new; clicked => { root.selective(); } }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                    }
+                    Field {
+                        label: "Folders not synced";
+                        hint: "One relative path per line.";
+                        TextEdit { text <=> current.exclude-folders; height: 70px; }
+                    }
+                    Field {
+                        label: "Only sync these folders";
+                        hint: "Optional. One relative path per line; empty = everything.";
+                        TextEdit { text <=> current.include-folders; height: 60px; }
+                    }
+                    Field {
+                        label: "Ignore files matching";
+                        hint: "Glob patterns, one per line (e.g. *.tmp, build/out).";
+                        TextEdit { text <=> current.excludes; height: 110px; }
+                    }
+                    Field {
+                        label: "Skip files larger than (MiB)";
+                        hint: "0 = no limit";
+                        SpinBox { width: 220px; minimum: 0; maximum: 1000000; value <=> current.max-file-size; }
+                    }
+                }
+            }
+
+            GroupBox {
+                title: "Behaviour";
+                VerticalLayout {
+                    spacing: 10px;
+                    Field {
+                        label: "When both sides changed";
+                        ComboBox {
+                            model: ["Keep both copies", "Keep this computer's version", "Keep the cloud version", "Keep the newest"];
+                            current-index <=> current.conflict;
+                        }
+                    }
+                    Field {
+                        label: "Google Docs, Sheets, Slides";
+                        ComboBox {
+                            model: ["Link files that open in the browser", "Office copies (read-only)", "Don't show"];
+                            current-index <=> current.docs;
+                        }
+                    }
+                    Field {
+                        label: "Symbolic links";
+                        ComboBox {
+                            model: ["Skip", "Sync as .rclonelink files"];
+                            current-index <=> current.symlinks;
+                        }
+                    }
+                    Field {
+                        label: "Deleted items";
+                        ComboBox {
+                            model: ["Move to bin / Trash on the other side", "Never delete (restore instead)"];
+                            current-index <=> current.delete-mode;
+                        }
+                    }
+                    Field {
+                        label: "Hold back deletions above";
+                        hint: "Asks for confirmation before deleting more than this many items at once. 0 = never ask.";
+                        SpinBox { width: 220px; minimum: 0; maximum: 1000000; value <=> current.delete-guard; }
+                    }
+                    Field {
+                        label: "First comparison";
+                        hint: "Size and date is fast and matches trees prepared by rclone.";
+                        ComboBox {
+                            model: ["Size and modification date", "Checksum (slower)"];
+                            current-index <=> current.initial-match;
+                        }
+                    }
+                    Field {
+                        label: "Flagged files";
+                        CheckBox { text: "Also download files Google flags as malware or spam"; checked <=> current.acknowledge-abuse; }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                if !current.is-new: Button { text: "Remove folder…"; clicked => { root.remove(current.name); } }
+                if !current.is-new: Button { text: "Re-compare from scratch"; clicked => { root.reset(current.name); } }
+                Rectangle { horizontal-stretch: 1; }
+                Button {
+                    text: current.is-new ? "Add folder" : "Save changes";
+                    primary: true;
+                    clicked => { root.save(current); }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- Accounts
+
+component AccountsPage inherits VerticalBox {
+    in property <[AccountRow]> accounts;
+    in-out property <bool> adding;
+    in-out property <string> new-name;
+    in-out property <string> new-email;
+    in-out property <string> new-client-id;
+    in-out property <string> new-client-secret;
+    in property <bool> busy;
+    callback sign-in(string);
+    callback sign-out(string);
+    callback remove(string);
+    callback add(string, string, string, string);
+    callback open-url(string);
+
+    HorizontalLayout {
+        Heading { text: "Accounts"; }
+        Rectangle { horizontal-stretch: 1; }
+        Button { text: "Add account…"; enabled: !adding; clicked => { adding = true; } }
+    }
+    if busy: HorizontalLayout {
+        spacing: 8px;
+        Spinner { indeterminate: true; width: 20px; height: 20px; }
+        Text { text: "Waiting for you to finish signing in in your browser…"; vertical-alignment: center; }
+    }
+    ScrollView {
+        vertical-stretch: 1;
+        VerticalLayout {
+            alignment: start;
+            spacing: 12px;
+            for a in accounts: Card {
+                HorizontalBox {
+                    StatusDot { kind: a.signed-in ? 0 : 5; y: 8px; }
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        Text { text: a.name; font-weight: 600; font-size: 15px; }
+                        Hint { text: (a.email == "" ? "e-mail not yet known" : a.email) + "  ·  " + (a.signed-in ? "signed in" : "not signed in") + "  ·  " + a.folders + " folder(s)"; }
+                    }
+                    Button { text: a.signed-in ? "Sign in again…" : "Sign in…"; enabled: !busy; clicked => { root.sign-in(a.name); } }
+                    Button { text: "Sign out"; enabled: a.signed-in && !busy; clicked => { root.sign-out(a.name); } }
+                    Button { text: "Remove"; enabled: a.folders == 0 && !busy; clicked => { root.remove(a.name); } }
+                }
+            }
+            if adding: Card {
+                VerticalBox {
+                    Text { text: "Add a Google account"; font-size: 16px; font-weight: 600; }
+                    Hint {
+                        text: "DriftFolderSync signs in with an OAuth client from your own Google Cloud project, so no third party ever handles your data. It takes about five minutes, once; the same client can serve all your accounts.";
+                    }
+                    Text { text: "1.  Create a project and enable the Google Drive API."; wrap: word-wrap; }
+                    HorizontalLayout {
+                        padding-left: 24px;
+                        spacing: 6px;
+                        Button { text: "Open Google Cloud console"; clicked => { root.open-url("https://console.cloud.google.com/projectcreate"); } }
+                        Button { text: "Enable the Drive API"; clicked => { root.open-url("https://console.cloud.google.com/apis/library/drive.googleapis.com"); } }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    Text { text: "2.  Configure the consent screen. Workspace admins: choose Internal. Otherwise choose External, add your account(s) as test users, then Publish the app so sign-ins don't expire after 7 days."; wrap: word-wrap; }
+                    HorizontalLayout {
+                        padding-left: 24px;
+                        Button { text: "Open consent screen settings"; clicked => { root.open-url("https://console.cloud.google.com/auth/overview"); } }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    Text { text: "3.  Create credentials → OAuth client ID → Desktop app, and paste the ID and secret below."; wrap: word-wrap; }
+                    HorizontalLayout {
+                        padding-left: 24px;
+                        Button { text: "Open credentials page"; clicked => { root.open-url("https://console.cloud.google.com/apis/credentials"); } }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    Field { label: "Account name"; hint: "A short name of your choosing"; LineEdit { text <=> new-name; placeholder-text: "e.g. work"; } }
+                    Field { label: "Google e-mail (optional)"; hint: "Checked when you sign in"; LineEdit { text <=> new-email; placeholder-text: "you@example.com"; } }
+                    Field { label: "Client ID"; LineEdit { text <=> new-client-id; placeholder-text: "….apps.googleusercontent.com"; } }
+                    Field { label: "Client secret"; LineEdit { text <=> new-client-secret; input-type: password; placeholder-text: "GOCSPX-…"; } }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Rectangle { horizontal-stretch: 1; }
+                        Button { text: "Cancel"; clicked => { adding = false; } }
+                        Button {
+                            text: "Add and sign in…";
+                            primary: true;
+                            enabled: new-name != "" && new-client-id != "" && !busy;
+                            clicked => { root.add(new-name, new-email, new-client-id, new-client-secret); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- Preferences
+
+component PreferencesPage inherits VerticalBox {
+    in-out property <GeneralCfg> cfg;
+    callback save(GeneralCfg);
+    Heading { text: "Preferences"; }
+    ScrollView {
+        vertical-stretch: 1;
+        VerticalBox {
+            GroupBox {
+                title: "General";
+                VerticalLayout {
+                    spacing: 10px;
+                    Field { label: "Start at login"; Switch { checked <=> cfg.start-at-login; } }
+                    Field { label: "Tray icon"; Switch { checked <=> cfg.tray; } }
+                    Field { label: "Notifications"; hint: "Conflicts, sign-in problems, held-back deletions"; Switch { checked <=> cfg.notifications; } }
+                }
+            }
+            GroupBox {
+                title: "Network";
+                VerticalLayout {
+                    spacing: 10px;
+                    Field {
+                        label: "Upload limit (KiB/s)";
+                        hint: "0 = unlimited";
+                        SpinBox { width: 220px; minimum: 0; maximum: 10000000; value <=> cfg.up-kibps; }
+                    }
+                    Field {
+                        label: "Download limit (KiB/s)";
+                        hint: "0 = unlimited";
+                        SpinBox { width: 220px; minimum: 0; maximum: 10000000; value <=> cfg.down-kibps; }
+                    }
+                    Field {
+                        label: "Simultaneous transfers";
+                        hint: "Per folder";
+                        SpinBox { width: 220px; minimum: 1; maximum: 16; value <=> cfg.transfers; }
+                    }
+                    Field {
+                        label: "Proxy";
+                        hint: "http://, https:// or socks5://. Empty = system environment.";
+                        LineEdit { text <=> cfg.proxy; placeholder-text: "http://proxy.example:3128"; }
+                    }
+                }
+            }
+            GroupBox {
+                title: "System";
+                VerticalLayout {
+                    spacing: 10px;
+                    Field {
+                        label: "Background priority";
+                        hint: "Higher = gentler on your computer (0–19)";
+                        SpinBox { width: 220px; minimum: 0; maximum: 19; value <=> cfg.nice; }
+                    }
+                }
+            }
+            HorizontalLayout {
+                Rectangle { horizontal-stretch: 1; }
+                Button { text: "Save"; primary: true; clicked => { root.save(cfg); } }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- Activity
+
+component ActivityPage inherits VerticalBox {
+    in property <[FolderStatus]> statuses;
+    in property <string> log-text;
+    in-out property <int> tab;
+    callback refresh-log();
+    callback open-log();
+    HorizontalLayout {
+        spacing: 8px;
+        Heading { text: "Activity"; }
+        Rectangle { horizontal-stretch: 1; }
+        Button { text: "Recent"; primary: tab == 0; clicked => { tab = 0; } }
+        Button { text: "Log"; primary: tab == 1; clicked => { tab = 1; root.refresh-log(); } }
+    }
+    if tab == 0: ScrollView {
+        vertical-stretch: 1;
+        VerticalLayout {
+            alignment: start;
+            spacing: 10px;
+            for s in statuses: Card {
+                VerticalBox {
+                    alignment: start;
+                    Text { text: s.name; font-weight: 600; }
+                    if s.recent.length == 0 && s.errors.length == 0: Hint { text: "Nothing yet in this session."; }
+                    for e in s.errors: Text { text: "⚠ " + e; color: Theme.bad; wrap: word-wrap; }
+                    for r in s.recent: Text { text: r; wrap: word-wrap; }
+                }
+            }
+        }
+    }
+    if tab == 1: VerticalLayout {
+        spacing: 6px;
+        TextEdit { text: log-text; read-only: true; vertical-stretch: 1; font-size: 12px; }
+        HorizontalLayout {
+            spacing: 8px;
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: "Open log file"; clicked => { root.open-log(); } }
+            Button { text: "Refresh"; clicked => { root.refresh-log(); } }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- About
+
+component AboutPage inherits VerticalBox {
+    in property <string> version;
+    callback open-url(string);
+    alignment: start;
+    HorizontalLayout {
+        spacing: 16px;
+        Image { source: @image-url("../data/icons/io.github.OnepointConsultingLtd.DriftFolderSync.svg"); width: 96px; height: 96px; }
+        VerticalLayout {
+            alignment: center;
+            Text { text: "DriftFolderSync"; font-size: 24px; font-weight: 600; }
+            Hint { text: "Version " + version; }
+        }
+    }
+    Text { text: "Real-time, two-way folder synchronisation with Google Drive for Linux."; wrap: word-wrap; }
+    Hint {
+        text: "Free software under the GNU General Public License, version 3 or later. DriftFolderSync is an independent project and is not affiliated with, endorsed by or sponsored by Google LLC. Google Drive is a trademark of Google LLC.";
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        Button { text: "Project website"; clicked => { root.open-url("https://github.com/OnepointConsultingLtd/DriftFolderSync"); } }
+        Button { text: "Report a problem"; clicked => { root.open-url("https://github.com/OnepointConsultingLtd/DriftFolderSync/issues"); } }
+        Button { text: "Licence"; clicked => { root.open-url("https://www.gnu.org/licenses/gpl-3.0.html"); } }
+        Rectangle { horizontal-stretch: 1; }
+    }
+}
+
+// ---------------------------------------------------------------- Cloud folder dialog
+
+component TreeDialog inherits Rectangle {
+    in property <[TreeRow]> rows;
+    in property <bool> pick-mode;     // true: choose one folder; false: tick folders to sync
+    in property <string> title;
+    in property <string> note;
+    in-out property <int> chosen: -1;
+    callback expand(int);
+    callback toggle(int);
+    callback ok();
+    callback cancel();
+    background: #00000080;
+    TouchArea { }   // modal: swallow clicks
+    Rectangle {
+        width: min(parent.width - 60px, 640px);
+        height: min(parent.height - 60px, 560px);
+        border-radius: 10px;
+        background: Palette.background;
+        border-width: 1px;
+        border-color: Palette.border;
+        VerticalBox {
+            Text { text: title; font-size: 17px; font-weight: 600; }
+            if note != "": Hint { text: note; }
+            Rectangle {
+                vertical-stretch: 1;
+                border-width: 1px;
+                border-color: Palette.border;
+                border-radius: 4px;
+                ListView {
+                    for r[i] in rows: Rectangle {
+                        height: 30px;
+                        background: pick-mode && i == chosen ? Palette.selection-background : transparent;
+                        TouchArea {
+                            clicked => { if pick-mode { chosen = i; } }
+                            double-clicked => { if r.expandable { root.expand(i); } }
+                        }
+                        HorizontalLayout {
+                            padding-left: 8px + r.depth * 20px;
+                            spacing: 6px;
+                            Rectangle {
+                                width: 18px;
+                                Text {
+                                    text: r.loading ? "…" : r.expandable ? (r.expanded ? "▾" : "▸") : "";
+                                    vertical-alignment: center;
+                                }
+                                TouchArea { clicked => { if r.expandable { root.expand(i); } } }
+                            }
+                            if !pick-mode: CheckBox {
+                                checked: r.checked;
+                                enabled: r.enabled;
+                                toggled => { root.toggle(i); }
+                            }
+                            Text {
+                                text: r.name;
+                                vertical-alignment: center;
+                                color: pick-mode && i == chosen ? Palette.selection-foreground
+                                       : r.enabled ? Palette.foreground : Palette.foreground.with-alpha(0.45);
+                            }
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                Rectangle { horizontal-stretch: 1; }
+                Button { text: "Cancel"; clicked => { root.cancel(); } }
+                Button {
+                    text: pick-mode ? "Choose" : "Apply";
+                    primary: true;
+                    enabled: !pick-mode || chosen >= 0;
+                    clicked => { root.ok(); }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- Main window
+
+export component MainWindow inherits Window {
+    title: "DriftFolderSync";
+    icon: @image-url("../data/icons/io.github.OnepointConsultingLtd.DriftFolderSync.svg");
+    preferred-width: 1040px;
+    preferred-height: 760px;
+    min-width: 820px;
+    min-height: 560px;
+
+    in-out property <int> page: 0;
+    in property <string> version;
+    in property <bool> daemon-running;
+    in property <[FolderStatus]> statuses;
+    in property <int> problem-count;
+    in property <[FolderConfig]> folders;
+    in property <[string]> account-names;
+    in-out property <FolderConfig> current-folder;
+    in-out property <int> selected-folder: -1;
+    in property <[AccountRow]> accounts;
+    in-out property <bool> adding-account;
+    in-out property <string> new-name;
+    in-out property <string> new-email;
+    in-out property <string> new-client-id;
+    in-out property <string> new-client-secret;
+    in property <bool> signing-in;
+    in-out property <GeneralCfg> general;
+    in property <string> log-text;
+    in-out property <int> activity-tab;
+    in property <string> toast;
+    in property <bool> toast-error;
+
+    in property <bool> tree-open;
+    in property <bool> tree-pick;
+    in property <string> tree-title;
+    in property <string> tree-note;
+    in property <[TreeRow]> tree-rows;
+    in-out property <int> tree-chosen: -1;
+
+    callback start-daemon();
+    callback sync-all();
+    callback pause-all(bool);
+    callback open-folder(string);
+    callback open-browser(string);
+    callback sync-now(string);
+    callback pause(string, bool);
+    callback allow-deletes(string);
+    callback sign-in(string);
+    callback sign-out(string);
+    callback remove-account(string);
+    callback add-account(string, string, string, string);
+    callback open-url(string);
+    callback new-folder();
+    callback save-folder(FolderConfig);
+    callback remove-folder(string);
+    callback reset-folder(string);
+    callback browse-local();
+    callback browse-remote();
+    callback selective();
+    callback save-general(GeneralCfg);
+    callback refresh-log();
+    callback open-log();
+    callback tree-expand(int);
+    callback tree-toggle(int);
+    callback tree-ok();
+    callback tree-cancel();
+
+    HorizontalLayout {
+        Rectangle {
+            width: 210px;
+            background: Palette.alternate-background;
+            VerticalLayout {
+                padding: 12px;
+                spacing: 4px;
+                HorizontalLayout {
+                    spacing: 8px;
+                    padding-bottom: 14px;
+                    Image { source: @image-url("../data/icons/io.github.OnepointConsultingLtd.DriftFolderSync.svg"); width: 32px; height: 32px; }
+                    Text { text: "DriftFolderSync"; font-weight: 600; vertical-alignment: center; }
+                }
+                NavItem { label: "Overview"; selected: page == 0; badge: problem-count; clicked => { page = 0; } }
+                NavItem { label: "Folders"; selected: page == 1; clicked => { page = 1; } }
+                NavItem { label: "Accounts"; selected: page == 2; clicked => { page = 2; } }
+                NavItem { label: "Preferences"; selected: page == 3; clicked => { page = 3; } }
+                NavItem { label: "Activity"; selected: page == 4; clicked => { page = 4; } }
+                NavItem { label: "About"; selected: page == 5; clicked => { page = 5; } }
+                Rectangle { vertical-stretch: 1; }
+                HorizontalLayout {
+                    spacing: 6px;
+                    StatusDot { kind: daemon-running ? 0 : 4; y: 3px; }
+                    Hint { text: daemon-running ? "Sync service running" : "Sync service stopped"; }
+                }
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            if page == 0: OverviewPage {
+                statuses: statuses;
+                daemon-running: daemon-running;
+                start-daemon => { root.start-daemon(); }
+                add-folder => { root.page = 1; root.new-folder(); }
+                sync-all => { root.sync-all(); }
+                pause-all(p) => { root.pause-all(p); }
+                open-folder(n) => { root.open-folder(n); }
+                open-browser(n) => { root.open-browser(n); }
+                sync-now(n) => { root.sync-now(n); }
+                pause(n, p) => { root.pause(n, p); }
+                allow-deletes(n) => { root.allow-deletes(n); }
+                sign-in(a) => { root.sign-in(a); }
+            }
+            if page == 1: FoldersPage {
+                folders: folders;
+                account-names: account-names;
+                current <=> root.current-folder;
+                selected <=> root.selected-folder;
+                new-folder => { root.new-folder(); }
+                save(f) => { root.save-folder(f); }
+                remove(n) => { root.remove-folder(n); }
+                reset(n) => { root.reset-folder(n); }
+                browse-local => { root.browse-local(); }
+                browse-remote => { root.browse-remote(); }
+                selective => { root.selective(); }
+            }
+            if page == 2: AccountsPage {
+                accounts: accounts;
+                adding <=> root.adding-account;
+                new-name <=> root.new-name;
+                new-email <=> root.new-email;
+                new-client-id <=> root.new-client-id;
+                new-client-secret <=> root.new-client-secret;
+                busy: signing-in;
+                sign-in(a) => { root.sign-in(a); }
+                sign-out(a) => { root.sign-out(a); }
+                remove(a) => { root.remove-account(a); }
+                add(n, e, i, s) => { root.add-account(n, e, i, s); }
+                open-url(u) => { root.open-url(u); }
+            }
+            if page == 3: PreferencesPage {
+                cfg <=> root.general;
+                save(g) => { root.save-general(g); }
+            }
+            if page == 4: ActivityPage {
+                statuses: statuses;
+                log-text: log-text;
+                tab <=> root.activity-tab;
+                refresh-log => { root.refresh-log(); }
+                open-log => { root.open-log(); }
+            }
+            if page == 5: AboutPage {
+                version: version;
+                open-url(u) => { root.open-url(u); }
+            }
+
+            if toast != "": Rectangle {
+                y: parent.height - self.height - 16px;
+                x: (parent.width - self.width) / 2;
+                width: min(parent.width - 40px, toast-text.preferred-width + 40px);
+                height: toast-text.preferred-height + 20px;
+                border-radius: 8px;
+                background: toast-error ? Theme.bad : #303437;
+                toast-text := Text {
+                    text: toast;
+                    color: white;
+                    wrap: word-wrap;
+                    width: parent.width - 30px;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+    }
+
+    if tree-open: TreeDialog {
+        width: parent.width;
+        height: parent.height;
+        rows: tree-rows;
+        pick-mode: tree-pick;
+        title: tree-title;
+        note: tree-note;
+        chosen <=> root.tree-chosen;
+        expand(i) => { root.tree-expand(i); }
+        toggle(i) => { root.tree-toggle(i); }
+        ok => { root.tree-ok(); }
+        cancel => { root.tree-cancel(); }
+    }
+}

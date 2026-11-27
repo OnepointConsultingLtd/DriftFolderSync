@@ -22,6 +22,7 @@ mod daemon;
 mod db;
 mod drive;
 mod engine;
+mod gui;
 mod ipc;
 mod limiter;
 mod localfs;
@@ -51,12 +52,15 @@ use crate::ipc::Request;
 #[derive(Parser)]
 #[command(name = "driftfoldersync", version, about = "Real-time two-way sync between Linux folders and Google Drive accounts", long_about = None)]
 struct Cli {
+    /// With no command, the settings and status window opens.
     #[command(subcommand)]
-    cmd: Cmd,
+    cmd: Option<Cmd>,
 }
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Open the settings and status window.
+    Gui,
     /// Run the sync service (normally started at login).
     Daemon {
         /// Do not show a system tray icon.
@@ -177,19 +181,29 @@ fn init_logging(daemon: bool) {
     tracing_subscriber::registry().with(filter).with(stderr).with(file).init();
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let cli = Cli::parse();
-    init_logging(matches!(cli.cmd, Cmd::Daemon { .. }));
+    let cmd = cli.cmd.unwrap_or(Cmd::Gui);
+    init_logging(matches!(cmd, Cmd::Daemon { .. }));
     let _ = rustls::crypto::ring::default_provider().install_default();
-    if let Err(e) = run(cli).await {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("starting the async runtime");
+    let result = match cmd {
+        // The window must own the main thread; async work runs on the runtime.
+        Cmd::Gui => gui::run(rt.handle().clone()),
+        cmd => rt.block_on(run(cmd)),
+    };
+    if let Err(e) = result {
         eprintln!("error: {e:#}");
         std::process::exit(1);
     }
 }
 
-async fn run(cli: Cli) -> Result<()> {
-    match cli.cmd {
+async fn run(cmd: Cmd) -> Result<()> {
+    match cmd {
+        Cmd::Gui => unreachable!(),
         Cmd::Daemon { no_tray } => daemon::run(no_tray).await,
         Cmd::Status { json } => {
             let r = ipc::request(&Request::Status).await?;

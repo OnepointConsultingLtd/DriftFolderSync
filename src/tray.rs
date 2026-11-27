@@ -100,14 +100,13 @@ impl ksni::Tray for DriftTray {
     }
 
     fn activate(&mut self, _x: i32, _y: i32) {
-        if let Some(p) = self.pairs.first() {
-            open(&self.ctl, format!("file://{}", p.local));
-        }
+        crate::gui::launch();
     }
 
     fn menu(&self) -> Vec<MenuItem<Self>> {
         let mut m: Vec<MenuItem<Self>> = Vec::new();
         m.push(disabled(format!("{} — {}", paths::APP_NAME, overall(&self.pairs).label())));
+        m.push(item("Open DriftFolderSync…", |_| crate::gui::launch()));
         m.push(MenuItem::Separator);
 
         for p in &self.pairs {
@@ -130,7 +129,9 @@ impl ksni::Tray for DriftTray {
             sub.push(disabled(format!("Session: {} up, {} down", p.uploaded, p.downloaded)));
             sub.push(MenuItem::Separator);
             let local = p.local.clone();
-            sub.push(item("Open folder", move |t| open(&t.ctl, format!("file://{local}"))));
+            sub.push(item("Open folder", move |t| {
+                open(&t.ctl, url::Url::from_directory_path(&local).map(|u| u.to_string()).unwrap_or_default())
+            }));
             if !p.remote_url.is_empty() {
                 let url = p.remote_url.clone();
                 sub.push(item("Open in browser", move |t| open(&t.ctl, url.clone())));
@@ -263,9 +264,7 @@ impl ksni::Tray for DriftTray {
                 .into(),
             );
         }
-        let cfgpath = Config::path();
-        m.push(item("Edit settings file", move |t| open(&t.ctl, format!("file://{}", cfgpath.display()))));
-        m.push(item("Reload settings", |t| t.ctl.reload.notify_one()));
+        m.push(item("Settings…", |_| crate::gui::launch()));
         m.push(MenuItem::Separator);
         m.push(item("Quit DriftFolderSync", |t| t.ctl.quit.notify_one()));
         m

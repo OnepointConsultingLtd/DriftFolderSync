@@ -397,6 +397,75 @@ impl DriveClient {
         Ok(cur)
     }
 
+    /// Sub-folders directly inside `parent` (for the folder browser).
+    pub async fn list_folders(&self, parent: &str, drive_id: Option<&str>) -> Result<Vec<DriveFile>> {
+        let q = format!("'{}' in parents and mimeType = '{}' and trashed = false", escape_q(parent), FOLDER_MIME);
+        let mut out = Vec::new();
+        let mut page: Option<String> = None;
+        loop {
+            let p = page.clone();
+            let fields = format!("nextPageToken,files({FIELDS})");
+            let r = self
+                .execute(|c| {
+                    let mut rq = c.get(format!("{}/files", api())).query(&[
+                        ("q", q.as_str()),
+                        ("fields", fields.as_str()),
+                        ("pageSize", "1000"),
+                        ("orderBy", "name"),
+                        ("supportsAllDrives", "true"),
+                        ("includeItemsFromAllDrives", "true"),
+                    ]);
+                    if let Some(d) = drive_id {
+                        rq = rq.query(&[("corpora", "drive"), ("driveId", d)]);
+                    }
+                    if let Some(p) = &p {
+                        rq = rq.query(&[("pageToken", p)]);
+                    }
+                    rq
+                })
+                .await?;
+            let l: FileList = r.json().await?;
+            out.extend(l.files);
+            match l.next_page_token {
+                Some(t) => page = Some(t),
+                None => return Ok(out),
+            }
+        }
+    }
+
+    /// Shared drives the user can see: (id, name).
+    pub async fn shared_drives(&self) -> Result<Vec<(String, String)>> {
+        let mut out = Vec::new();
+        let mut page: Option<String> = None;
+        loop {
+            let p = page.clone();
+            let r = self
+                .execute(|c| {
+                    let mut q = c
+                        .get(format!("{}/drives", api()))
+                        .query(&[("pageSize", "100"), ("fields", "nextPageToken,drives(id,name)")]);
+                    if let Some(p) = &p {
+                        q = q.query(&[("pageToken", p)]);
+                    }
+                    q
+                })
+                .await?;
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct L {
+                #[serde(default)]
+                drives: Vec<SharedDrive>,
+                next_page_token: Option<String>,
+            }
+            let l: L = r.json().await?;
+            out.extend(l.drives.into_iter().map(|d| (d.id, d.name)));
+            match l.next_page_token {
+                Some(t) => page = Some(t),
+                None => return Ok(out),
+            }
+        }
+    }
+
     /// List all non-trashed descendants of `root` (breadth first, batching
     /// up to 40 parents per query to minimise API calls — like rclone's
     /// --fast-list).
