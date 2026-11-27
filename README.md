@@ -29,8 +29,7 @@ Flatpak.
 
 ## Features
 
-Compared with Drive for desktop (Windows/macOS) and with the roadmap of
-[DriveSync](https://github.com/Ferdinaelectro1/DriveSync):
+Compared with Drive for desktop (Windows/macOS):
 
 | Feature | DriftFolderSync |
 |---|---|
@@ -51,9 +50,9 @@ Compared with Drive for desktop (Windows/macOS) and with the roadmap of
 | Start at login | ✅ Background portal (Flatpak) or XDG autostart |
 | Deleted files are recoverable | ✅ cloud deletions go to the Drive bin; local ones to your Trash |
 | Large deletion warning | ✅ more than `delete_guard` deletions wait for confirmation |
-| **Selective sync** *(DriveSync roadmap)* | ✅ `include_folders` / `exclude_folders` and glob `exclude` patterns |
-| **Conflict resolution** *(DriveSync roadmap)* | ✅ keep both (default), prefer local, prefer cloud, or prefer newest |
-| **No "tester" restriction** *(DriveSync roadmap)* | ✅ you use your own OAuth client, so no shared app needs Google verification ([details](#oauth-set-up)) |
+| Selective sync | ✅ `include_folders` / `exclude_folders` and glob `exclude` patterns |
+| Conflict resolution | ✅ keep both (default), prefer local, prefer cloud, or prefer newest |
+| No "test users only" or 7-day sign-in limits from a shared app | ✅ you use your own OAuth client, so no shared app needs Google verification ([details](#oauth-set-up)) |
 | Resumable uploads of large files, MD5 verification | ✅ |
 | Renames and moves without re-uploading | ✅ detected by inode locally and by file ID remotely |
 | Symbolic links | ✅ optional, compatible with `rclone --links` (`.rclonelink`) |
