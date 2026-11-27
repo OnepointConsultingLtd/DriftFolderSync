@@ -1,4 +1,4 @@
-id: io.github.driftfoldersync.DriftFolderSync
+id: io.github.OnepointConsultingLtd.DriftFolderSync
 runtime: org.freedesktop.Platform
 runtime-version: '26.08'
 sdk: org.freedesktop.Sdk
@@ -28,12 +28,12 @@ modules:
       - printf '[source.crates-io]\nreplace-with = "vendored"\n[source.vendored]\ndirectory = "vendor"\n' > cargo-home/config.toml
       - cargo build --release --locked --offline
       - install -Dm755 target/release/driftfoldersync /app/bin/driftfoldersync
-      - install -Dm644 data/io.github.driftfoldersync.DriftFolderSync.desktop /app/share/applications/io.github.driftfoldersync.DriftFolderSync.desktop
-      - install -Dm644 data/io.github.driftfoldersync.DriftFolderSync.Open.desktop /app/share/applications/io.github.driftfoldersync.DriftFolderSync.Open.desktop
-      - install -Dm644 data/io.github.driftfoldersync.DriftFolderSync.metainfo.xml /app/share/metainfo/io.github.driftfoldersync.DriftFolderSync.metainfo.xml
-      - install -Dm644 data/io.github.driftfoldersync.DriftFolderSync.mime.xml /app/share/mime/packages/io.github.driftfoldersync.DriftFolderSync.xml
-      - install -Dm644 data/icons/io.github.driftfoldersync.DriftFolderSync.svg /app/share/icons/hicolor/scalable/apps/io.github.driftfoldersync.DriftFolderSync.svg
-      - install -Dm644 LICENSE /app/share/licenses/io.github.driftfoldersync.DriftFolderSync/LICENSE
+      - install -Dm644 data/io.github.OnepointConsultingLtd.DriftFolderSync.desktop /app/share/applications/io.github.OnepointConsultingLtd.DriftFolderSync.desktop
+      - install -Dm644 data/io.github.OnepointConsultingLtd.DriftFolderSync.Open.desktop /app/share/applications/io.github.OnepointConsultingLtd.DriftFolderSync.Open.desktop
+      - install -Dm644 data/io.github.OnepointConsultingLtd.DriftFolderSync.metainfo.xml /app/share/metainfo/io.github.OnepointConsultingLtd.DriftFolderSync.metainfo.xml
+      - install -Dm644 data/io.github.OnepointConsultingLtd.DriftFolderSync.mime.xml /app/share/mime/packages/io.github.OnepointConsultingLtd.DriftFolderSync.xml
+      - install -Dm644 data/icons/io.github.OnepointConsultingLtd.DriftFolderSync.svg /app/share/icons/hicolor/scalable/apps/io.github.OnepointConsultingLtd.DriftFolderSync.svg
+      - install -Dm644 LICENSE /app/share/licenses/io.github.OnepointConsultingLtd.DriftFolderSync/LICENSE
     sources:
       - type: dir
         path: ..

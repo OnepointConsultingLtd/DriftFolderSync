@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.driftfoldersync.DriftFolderSync</id>
+  <id>io.github.OnepointConsultingLtd.DriftFolderSync</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <name>DriftFolderSync</name>
@@ -24,7 +24,9 @@
       endorsed by, or sponsored by Google.
     </p>
   </description>
-  <launchable type="desktop-id">io.github.driftfoldersync.DriftFolderSync.desktop</launchable>
+  <url type="homepage">https://github.com/OnepointConsultingLtd/DriftFolderSync</url>
+  <url type="bugtracker">https://github.com/OnepointConsultingLtd/DriftFolderSync/issues</url>
+  <launchable type="desktop-id">io.github.OnepointConsultingLtd.DriftFolderSync.desktop</launchable>
   <provides>
     <binary>driftfoldersync</binary>
   </provides>

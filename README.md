@@ -75,13 +75,13 @@ The Flatpak has access to your home directory, so you can sync folders
 anywhere under it. To sync a folder elsewhere, grant access first:
 
 ```sh
-flatpak override --user --filesystem=/data/projects io.github.driftfoldersync.DriftFolderSync
+flatpak override --user --filesystem=/data/projects io.github.OnepointConsultingLtd.DriftFolderSync
 ```
 
 A shell alias makes the CLI more convenient:
 
 ```sh
-alias driftfoldersync='flatpak run io.github.driftfoldersync.DriftFolderSync'
+alias driftfoldersync='flatpak run io.github.OnepointConsultingLtd.DriftFolderSync'
 ```
 
 ### From source
@@ -237,7 +237,7 @@ Change it from the tray (**Sync frequency**) or with
 ## Configuration reference
 
 The settings file is `~/.config/driftfoldersync/config.toml` (Flatpak:
-`~/.var/app/io.github.driftfoldersync.DriftFolderSync/config/driftfoldersync/config.toml`).
+`~/.var/app/io.github.OnepointConsultingLtd.DriftFolderSync/config/driftfoldersync/config.toml`).
 Run `driftfoldersync config-path` to print it. Every option is documented in
 [`config.example.toml`](config.example.toml). After editing, run
 `driftfoldersync reload` or choose **Reload settings** from the tray.
@@ -258,7 +258,7 @@ driftfoldersync reload | quit | config-path
 ```
 
 Logs: `~/.local/share/driftfoldersync/driftfoldersync.log` (Flatpak:
-`~/.var/app/io.github.driftfoldersync.DriftFolderSync/data/driftfoldersync/driftfoldersync.log`).
+`~/.var/app/io.github.OnepointConsultingLtd.DriftFolderSync/data/driftfoldersync/driftfoldersync.log`).
 Set `DRIFTFOLDERSYNC_LOG=debug` for more detail. On a headless machine without a
 keyring, `DRIFTFOLDERSYNC_TOKEN_STORE=file` stores tokens in a file readable only by
 you.

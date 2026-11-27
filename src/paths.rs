@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-pub const APP_ID: &str = "io.github.driftfoldersync.DriftFolderSync";
+pub const APP_ID: &str = "io.github.OnepointConsultingLtd.DriftFolderSync";
 pub const APP_NAME: &str = "DriftFolderSync";
 
 fn xdg(var: &str, fallback: &str) -> PathBuf {

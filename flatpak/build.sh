@@ -7,7 +7,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(dirname "$here")"
-app_id=io.github.driftfoldersync.DriftFolderSync
+app_id=io.github.OnepointConsultingLtd.DriftFolderSync
 
 cd "$root"
 echo "==> Vendoring Rust crates (the Flatpak build itself runs offline)"

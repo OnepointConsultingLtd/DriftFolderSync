@@ -1,5 +1,5 @@
 # DriftFolderSync settings — ~/.config/driftfoldersync/config.toml
-# (Flatpak: ~/.var/app/io.github.driftfoldersync.DriftFolderSync/config/driftfoldersync/config.toml)
+# (Flatpak: ~/.var/app/io.github.OnepointConsultingLtd.DriftFolderSync/config/driftfoldersync/config.toml)
 #
 # After editing, run `driftfoldersync reload` or use "Reload settings" in the tray menu.
 
