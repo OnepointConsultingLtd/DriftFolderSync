@@ -62,7 +62,19 @@ Compared with Drive for desktop (Windows/macOS):
 
 ## Install
 
-### Flatpak (recommended)
+### Flatpak from a release (easiest)
+
+Download `DriftFolderSync-<version>-x86_64.flatpak` from the
+[Releases page](https://github.com/OnepointConsultingLtd/DriftFolderSync/releases), then:
+
+```sh
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --user DriftFolderSync-*-x86_64.flatpak
+```
+
+To update, install the newer file the same way.
+
+### Flatpak built locally
 
 ```sh
 ./flatpak/build.sh            # builds and installs for the current user
@@ -311,6 +323,22 @@ you.
   policy obligations yourself.
 
 ## Building and testing
+
+### Releases
+
+GitHub Actions builds and tests every push to `main`; the Flatpak bundle is
+kept as a build artifact for 30 days. To publish a release, set the
+version in `Cargo.toml` (and add a `<release>` entry to the metainfo file),
+commit, then tag:
+
+```sh
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+The workflow checks that the tag matches `Cargo.toml`, builds the Flatpak
+and attaches it, with its SHA-256 checksum, to a new GitHub Release.
+
+### Locally
 
 ```sh
 cargo test        # unit tests + end-to-end tests against an in-process fake Drive server
