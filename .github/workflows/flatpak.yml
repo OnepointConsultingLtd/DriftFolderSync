@@ -52,11 +52,13 @@ jobs:
       - name: Install Flatpak tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
+          sudo apt-get install -y --no-install-recommends flatpak
           # Ubuntu 24.04 restricts unprivileged user namespaces, which the
           # Flatpak build sandbox (bubblewrap) needs.
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          # Same up-to-date builder as for local builds (Ubuntu's is too old).
+          flatpak install --user --noninteractive flathub org.flatpak.Builder
 
       - name: Cache runtimes and build state
         uses: actions/cache@v4
